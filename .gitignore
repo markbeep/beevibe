@@ -4,7 +4,12 @@
 # build artifacts
 /bin/
 /web/node_modules/
-/web/dist/
+/web/dist/*
+!/web/dist/.gitkeep
+
+# vendored C++ sources and downloaded models
+/third_party/
+/models/
 
 # editor / OS noise
 .DS_Store

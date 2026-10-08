@@ -113,6 +113,61 @@ func (q *Queries) ListChatForUser(ctx context.Context, arg ListChatForUserParams
 	return items, nil
 }
 
+const listChatForUserPage = `-- name: ListChatForUserPage :many
+SELECT id, room_id, user_id, kind, text, created_at FROM (
+    SELECT id, room_id, user_id, kind, text, created_at FROM messages
+    WHERE (user_id = ?1 OR (room_id = ?2 AND user_id IS NULL))
+      AND id < COALESCE(?3, 9223372036854775807)
+    ORDER BY id DESC
+    LIMIT ?4
+) ORDER BY id
+`
+
+type ListChatForUserPageParams struct {
+	UserID    sql.NullInt64 `json:"user_id"`
+	RoomID    string        `json:"room_id"`
+	Before    sql.NullInt64 `json:"before"`
+	PageLimit int64         `json:"page_limit"`
+}
+
+// One page of a user's chat: messages addressed to that user plus room-wide
+// broadcasts. `before` is an exclusive id cursor; NULL means "the newest page".
+// The page is returned oldest-first.
+func (q *Queries) ListChatForUserPage(ctx context.Context, arg ListChatForUserPageParams) ([]Message, error) {
+	rows, err := q.db.QueryContext(ctx, listChatForUserPage,
+		arg.UserID,
+		arg.RoomID,
+		arg.Before,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Message{}
+	for rows.Next() {
+		var i Message
+		if err := rows.Scan(
+			&i.ID,
+			&i.RoomID,
+			&i.UserID,
+			&i.Kind,
+			&i.Text,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMessagesByRoom = `-- name: ListMessagesByRoom :many
 SELECT id, room_id, user_id, kind, text, created_at FROM messages WHERE room_id = ? ORDER BY id
 `

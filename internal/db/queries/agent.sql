@@ -40,3 +40,8 @@ SELECT * FROM agent_runs WHERE user_id = ? ORDER BY id DESC;
 UPDATE agent_runs
 SET status = 'failed', finished_at = ?
 WHERE status IN ('queued','running');
+
+-- name: StartAgentRun :exec
+-- queued -> running transition; CreateAgentRun cannot express it and
+-- FinishAgentRun also writes finished_at/steps.
+UPDATE agent_runs SET status = 'running', started_at = ? WHERE id = ?;

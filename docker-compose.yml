@@ -1,0 +1,20 @@
+services:
+  backend:
+    build: .
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-change-me}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DATA_DIR: /data
+      RENDERER_URL: http://renderer:9000
+      APP_URL: http://backend:8080
+    volumes: ["./data:/data"]
+    ports: ["8080:8080"]
+    depends_on: [renderer]
+  renderer:
+    build: {context: ., dockerfile: Dockerfile.renderer}
+    ports: ["9000:9000"]
+    cpus: 1
+    mem_limit: 1g
+    shm_size: 512m
+volumes: {}

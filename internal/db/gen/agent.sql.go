@@ -262,3 +262,19 @@ func (q *Queries) NextAgentMessageSeq(ctx context.Context, userID int64) (int64,
 	err := row.Scan(&next_seq)
 	return next_seq, err
 }
+
+const startAgentRun = `-- name: StartAgentRun :exec
+UPDATE agent_runs SET status = 'running', started_at = ? WHERE id = ?
+`
+
+type StartAgentRunParams struct {
+	StartedAt sql.NullInt64 `json:"started_at"`
+	ID        int64         `json:"id"`
+}
+
+// queued -> running transition; CreateAgentRun cannot express it and
+// FinishAgentRun also writes finished_at/steps.
+func (q *Queries) StartAgentRun(ctx context.Context, arg StartAgentRunParams) error {
+	_, err := q.db.ExecContext(ctx, startAgentRun, arg.StartedAt, arg.ID)
+	return err
+}

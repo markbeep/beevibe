@@ -1,0 +1,35 @@
+# beevibe renderer: headless-Chromium screenshot service (cmd/beevibe-renderer)
+# on top of the chromedp/headless-shell image.
+
+# ---- stage 1: build ----------------------------------------------------------
+
+FROM golang:1.27-bookworm AS build
+
+WORKDIR /src
+
+# go.mod replaces github.com/ggerganov/whisper.cpp/bindings/go with the gitignored
+# ./third_party/whisper.cpp, so the module graph only resolves when that directory
+# exists. The renderer is built with CGO disabled, so the sources alone suffice.
+RUN git clone --depth 1 https://github.com/ggml-org/whisper.cpp /src/third_party/whisper.cpp
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY --exclude=third_party --exclude=models --exclude=data --exclude=bin --exclude=web/node_modules --exclude=.git --exclude=.jj . ./
+
+RUN CGO_ENABLED=0 go build -o /out/beevibe-renderer ./cmd/beevibe-renderer
+
+# ---- stage 2: runtime --------------------------------------------------------
+
+FROM chromedp/headless-shell:latest
+
+COPY --from=build /out/beevibe-renderer /usr/local/bin/beevibe-renderer
+COPY renderer-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENV PORT=9000 \
+    CHROMIUM_URL=http://127.0.0.1:9222
+
+EXPOSE 9000
+
+ENTRYPOINT ["/entrypoint.sh"]
