@@ -1,0 +1,15 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    # goose migrations are also the schema sqlc analyses (verified: sqlc ignores
+    # the `-- +goose Down` section and parses `-- +goose Up`).
+    schema: "internal/db/migrations"
+    queries: "internal/db/queries"
+    gen:
+      go:
+        package: "dbgen"
+        out: "internal/db/gen"
+        sql_package: "database/sql"
+        emit_json_tags: true
+        emit_empty_slices: true
+        emit_interface: false

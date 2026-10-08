@@ -1,0 +1,11 @@
+# runtime data: SQLite database, user subdirectories, room templates
+/data/
+
+# build artifacts
+/bin/
+/web/node_modules/
+/web/dist/
+
+# editor / OS noise
+.DS_Store
+*.swp
