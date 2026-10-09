@@ -14,7 +14,7 @@
 | CSRF | State-changing requests MUST be same-origin: the server validates `Origin` and `Sec-Fetch-Site`. |
 | Errors | `{"error":{"code":"<code>","message":"<human text>"}}`. |
 | Error codes | `bad_request` 400 · `unauthorized` 401 · `forbidden` 403 · `not_found` 404 · `conflict` 409 · `payload_too_large` 413 · `unsupported_media_type` 415 · `rate_limited` 429 (+`Retry-After`) · `internal` 500 |
-| Rate limits | login 5/min/IP · API 30/min/user · WS 10 msg/s per connection (exceeding closes the socket with code 1008). |
+| Rate limits | login 30 rejected/min/IP · WS 10 msg/s per connection (exceeding closes the socket with code 1008). No limit on other API routes. |
 | Async operations | Resets, template uploads, bulk actions and preview refreshes return **202 Accepted**; the result arrives over the WebSocket. |
 
 ## 2. Objects

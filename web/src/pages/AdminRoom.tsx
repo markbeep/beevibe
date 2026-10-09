@@ -9,26 +9,11 @@ import {
 import { useParams } from "@solidjs/router";
 import { FaSolidCopy, FaSolidPlus, FaSolidTrash } from "solid-icons/fa";
 import { api, ApiError } from "../lib/api";
-import type { ResetProgressFrame, Room, RoomState, User } from "../lib/types";
+import { TRANSITIONS } from "../lib/rooms";
+import type { ResetProgressFrame, Room, User } from "../lib/types";
 import { Modal } from "../components/Modal";
+import { RoomHeader } from "../components/RoomHeader";
 import { useAdminSocket } from "../session";
-
-const STATE_LABEL: Record<RoomState, string> = {
-  open: "open",
-  started: "started",
-  closed: "closed",
-  archived: "archived",
-};
-
-const TRANSITIONS: Record<RoomState, { label: string; action: string }[]> = {
-  open: [{ label: "Start", action: "start" }],
-  started: [{ label: "Close", action: "close" }],
-  closed: [
-    { label: "Reopen", action: "reopen" },
-    { label: "Archive", action: "archive" },
-  ],
-  archived: [],
-};
 
 const MODELS = ["deepseek-flash", "deepseek-chat"];
 
@@ -417,81 +402,61 @@ export default function AdminRoom(): JSX.Element {
   };
 
   return (
-    <section class="admin-page">
+    <section class="admin-page admin-wide">
       <Show when={room()} fallback={<p class="has-text-grey">Loading room…</p>}>
         {(current) => (
           <>
-            <header class="page-head">
-              <div>
-                <h1 class="title is-4">
-                  {current().name || "Untitled room"}{" "}
-                  <span class="tag is-light">{STATE_LABEL[current().state]}</span>
-                </h1>
-                <p class="subtitle is-6">
-                  <code>{current().id}</code> · {current().userCount} users
-                </p>
-              </div>
-              <div class="page-head-actions">
-                <button
-                  class="button"
-                  onClick={() => {
-                    setRenameValue(current().name ?? "");
-                    setRenameOpen(true);
-                  }}
-                >
-                  Rename
-                </button>
-                <For each={TRANSITIONS[current().state]}>
-                  {(transition) => (
-                    <button
-                      class="button"
-                      onClick={() => void runRoomAction(transition.action)}
-                    >
-                      {transition.label}
-                    </button>
-                  )}
-                </For>
-                <Show when={canDeleteRoom()}>
+            <RoomHeader
+              roomId={current().id}
+              name={current().name || "Untitled room"}
+              state={current().state}
+              userCount={current().userCount}
+              view="settings"
+            >
+              <button
+                class="button"
+                onClick={() => {
+                  setRenameValue(current().name ?? "");
+                  setRenameOpen(true);
+                }}
+              >
+                Rename
+              </button>
+              <For each={TRANSITIONS[current().state]}>
+                {(transition) => (
                   <button
-                    class="button is-danger"
-                    onClick={() => setDeleteRoomOpen(true)}
+                    class="button"
+                    onClick={() => void runRoomAction(transition.action)}
                   >
-                    Delete room
+                    {transition.label}
                   </button>
-                </Show>
-                <a class="button is-link" href={`/admin/rooms/${roomId()}/live`}>
-                  Live overview
-                </a>
-              </div>
-            </header>
+                )}
+              </For>
+              <Show when={canDeleteRoom()}>
+                <button
+                  class="button is-danger"
+                  onClick={() => setDeleteRoomOpen(true)}
+                >
+                  Delete room
+                </button>
+              </Show>
+            </RoomHeader>
 
             <Show when={error()}>
               <div class="notification is-danger is-light">{error()}</div>
             </Show>
 
-            <div class="room-config box">
-              <div class="field is-horizontal">
-                <div class="field-label is-small">
-                  <label class="label">Agent model</label>
-                </div>
-                <div class="field-body">
-                  <div class="field">
-                    <div class="control">
-                      <div class="select is-small">
-                        <select
-                          value={current().model}
-                          onChange={(event) =>
-                            void saveModel(event.currentTarget.value)
-                          }
-                        >
-                          <For each={MODELS}>
-                            {(model) => <option value={model}>{model}</option>}
-                          </For>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            <div class="box">
+              <h2 class="title is-6">Agent model</h2>
+              <div class="select is-small">
+                <select
+                  value={current().model}
+                  onChange={(event) => void saveModel(event.currentTarget.value)}
+                >
+                  <For each={MODELS}>
+                    {(model) => <option value={model}>{model}</option>}
+                  </For>
+                </select>
               </div>
             </div>
 
@@ -637,153 +602,155 @@ export default function AdminRoom(): JSX.Element {
                 </div>
               </Show>
 
-              <table class="table is-fullwidth is-narrow">
-                <thead>
-                  <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={allFilteredSelected()}
-                        onChange={toggleAllFiltered}
-                      />
-                    </th>
-                    <th>Name</th>
-                    <th>Token</th>
-                    <th>State</th>
-                    <th>Tokens</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={filtered()}>
-                    {(user) => (
-                      <tr class={user.online ? "" : "is-offline-row"}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selected().has(user.id)}
-                            onChange={() => toggleUser(user.id)}
-                          />
-                        </td>
-                        <td>
-                          <span class={`online-dot ${user.online ? "is-on" : ""}`} />
-                          {user.name}
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            class="token-cell token-mask"
-                            title={
-                              revealedTokenId() === user.id
-                                ? "Hide token"
-                                : "Reveal token"
-                            }
-                            onClick={() =>
-                              setRevealedTokenId((prev) =>
-                                prev === user.id ? null : user.id,
-                              )
-                            }
-                          >
-                            {revealedTokenId() === user.id
-                              ? user.token
-                              : "••••••••"}
-                          </button>
-                          <button
-                            class="button is-small is-ghost"
-                            title="Copy token"
-                            onClick={() => void copyToken(user)}
-                          >
-                            {copiedId() === user.id ? "copied" : <FaSolidCopy />}
-                          </button>
-                        </td>
-                        <td>
-                          <span class="state-label">{user.agentState}</span>
-                          <Show when={user.queueDepth > 0}>
-                            <span class="tag is-warning is-light">
-                              +{user.queueDepth}
-                            </span>
-                          </Show>
-                          <Show when={user.helpPending}>
-                            <span class="tag is-link">help</span>
-                          </Show>
-                        </td>
-                        <td>
-                          {user.tokensUsed}
-                          {user.tokenLimit !== null
-                            ? ` / ${user.tokenLimit}`
-                            : " / unlimited"}
-                        </td>
-                        <td>
-                          <div class="buttons are-small">
-                            <a
-                              class="button"
-                              href={`/admin/rooms/${roomId()}/live?user=${user.id}`}
-                            >
-                              Chat
-                            </a>
-                            <Show when={user.helpPending}>
-                              <button
-                                class="button is-warning"
-                                onClick={() => void clearHelp(user)}
-                              >
-                                Clear help
-                              </button>
-                            </Show>
+              <div class="table-container">
+                <table class="table is-fullwidth is-narrow">
+                  <thead>
+                    <tr>
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={allFilteredSelected()}
+                          onChange={toggleAllFiltered}
+                        />
+                      </th>
+                      <th>Name</th>
+                      <th>Token</th>
+                      <th>State</th>
+                      <th>Tokens</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={filtered()}>
+                      {(user) => (
+                        <tr class={user.online ? "" : "is-offline-row"}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selected().has(user.id)}
+                              onChange={() => toggleUser(user.id)}
+                            />
+                          </td>
+                          <td>
+                            <span class={`online-dot ${user.online ? "is-on" : ""}`} />
+                            {user.name}
+                          </td>
+                          <td>
                             <button
-                              class="button"
-                              disabled={
-                                user.agentState === "idle" &&
-                                user.queueDepth === 0
+                              type="button"
+                              class="token-cell token-mask"
+                              title={
+                                revealedTokenId() === user.id
+                                  ? "Hide token"
+                                  : "Reveal token"
                               }
-                              onClick={() => void cancelUser(user)}
+                              onClick={() =>
+                                setRevealedTokenId((prev) =>
+                                  prev === user.id ? null : user.id,
+                                )
+                              }
                             >
-                              Cancel
-                            </button>
-                            <button class="button" onClick={() => void kickUser(user)}>
-                              Kick
+                              {revealedTokenId() === user.id
+                                ? user.token
+                                : "••••••••"}
                             </button>
                             <button
-                              class="button"
-                              onClick={() => setResetTarget(user)}
+                              class="button is-small is-ghost"
+                              title="Copy token"
+                              onClick={() => void copyToken(user)}
                             >
-                              Reset
+                              {copiedId() === user.id ? "copied" : <FaSolidCopy />}
                             </button>
-                            <button
-                              class="button"
-                              onClick={() => {
-                                setMessageText("");
-                                setMessageTarget(user);
-                              }}
-                            >
-                              Message
-                            </button>
-                            <button
-                              class="button"
-                              onClick={() => {
-                                setLimitValue(
-                                  user.tokenLimit !== null
-                                    ? String(user.tokenLimit)
-                                    : "",
-                                );
-                                setLimitUnlimited(user.tokenLimit === null);
-                                setLimitTarget(user);
-                              }}
-                            >
-                              Limit
-                            </button>
-                            <button
-                              class="button is-danger is-light"
-                              onClick={() => setDeleteUserTarget(user)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </For>
-                </tbody>
-              </table>
+                          </td>
+                          <td>
+                            <span class="state-label">{user.agentState}</span>
+                            <Show when={user.queueDepth > 0}>
+                              <span class="tag is-warning is-light">
+                                +{user.queueDepth}
+                              </span>
+                            </Show>
+                            <Show when={user.helpPending}>
+                              <span class="tag is-link">help</span>
+                            </Show>
+                          </td>
+                          <td>
+                            {user.tokensUsed}
+                            {user.tokenLimit !== null
+                              ? ` / ${user.tokenLimit}`
+                              : " / unlimited"}
+                          </td>
+                          <td>
+                            <div class="buttons are-small">
+                              <a
+                                class="button"
+                                href={`/admin/rooms/${roomId()}/live?user=${user.id}`}
+                              >
+                                Chat
+                              </a>
+                              <Show when={user.helpPending}>
+                                <button
+                                  class="button is-warning"
+                                  onClick={() => void clearHelp(user)}
+                                >
+                                  Clear help
+                                </button>
+                              </Show>
+                              <button
+                                class="button"
+                                disabled={
+                                  user.agentState === "idle" &&
+                                  user.queueDepth === 0
+                                }
+                                onClick={() => void cancelUser(user)}
+                              >
+                                Cancel
+                              </button>
+                              <button class="button" onClick={() => void kickUser(user)}>
+                                Kick
+                              </button>
+                              <button
+                                class="button"
+                                onClick={() => setResetTarget(user)}
+                              >
+                                Reset
+                              </button>
+                              <button
+                                class="button"
+                                onClick={() => {
+                                  setMessageText("");
+                                  setMessageTarget(user);
+                                }}
+                              >
+                                Message
+                              </button>
+                              <button
+                                class="button"
+                                onClick={() => {
+                                  setLimitValue(
+                                    user.tokenLimit !== null
+                                      ? String(user.tokenLimit)
+                                      : "",
+                                  );
+                                  setLimitUnlimited(user.tokenLimit === null);
+                                  setLimitTarget(user);
+                                }}
+                              >
+                                Limit
+                              </button>
+                              <button
+                                class="button is-danger is-light"
+                                onClick={() => setDeleteUserTarget(user)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
+              </div>
 
               <Show when={filtered().length === 0}>
                 <p class="has-text-grey">No users match this filter.</p>

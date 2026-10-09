@@ -61,56 +61,54 @@ export default function Index(): JSX.Element {
 
   return (
     <section class="index-page">
-      <div class="index-hero">
-        <h1 class="title is-2">beevibe</h1>
-        <p class="index-blurb">
-          Speak a request and your own little website changes to match. Scan the
-          token you were given, or talk to the admin.
-        </p>
-      </div>
+      <div class="index-board">
+        <div class="index-brand">
+          <h1 class="index-mark">beevibe</h1>
+          <div class="index-rule" aria-hidden="true"></div>
+          <p class="index-blurb">
+            No text, just rawdog voice-based vibe-coding with the feeling of
+            being inside a call center.
+          </p>
+        </div>
 
-      <div class="card index-card">
-        <div class="card-content">
-          <form onSubmit={submit}>
-            <div class="field">
-              <label class="label">Your token</label>
-              <div class="control">
-                <input
-                  class="input"
-                  type="text"
-                  autocomplete="off"
-                  autofocus
-                  placeholder="a1B2c3D4"
-                  value={token()}
-                  onInput={(event) => setToken(event.currentTarget.value)}
-                />
-              </div>
-            </div>
-
-            <div class="field">
-              <label class="checkbox">
-                <input
-                  type="checkbox"
-                  checked={remember()}
-                  onChange={(event) => setRemember(event.currentTarget.checked)}
-                />
-                Remember my token on this device
+        <div class="index-panel">
+          <form class="index-form" onSubmit={submit}>
+            <div class="index-field">
+              <label class="index-label" for="index-token">
+                Your token
               </label>
+              <input
+                id="index-token"
+                class="index-input"
+                type="text"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck={false}
+                autofocus
+                placeholder="a1B2c3D4"
+                value={token()}
+                onInput={(event) => setToken(event.currentTarget.value)}
+              />
             </div>
+
+            <label class="index-remember">
+              <input
+                type="checkbox"
+                checked={remember()}
+                onChange={(event) => setRemember(event.currentTarget.checked)}
+              />
+              <span>Remember my token on this device</span>
+            </label>
 
             <Show when={error()}>
-              <div class="notification is-danger is-light">{error()}</div>
+              <div class="index-error" role="alert">
+                {error()}
+              </div>
             </Show>
 
-            <div class="field">
-              <button
-                class="button is-primary is-fullwidth"
-                type="submit"
-                disabled={busy()}
-              >
-                {busy() ? "Signing in…" : "Enter"}
-              </button>
-            </div>
+            <button class="index-submit" type="submit" disabled={busy()}>
+              {busy() ? "Signing in…" : "Enter"}
+            </button>
           </form>
         </div>
       </div>

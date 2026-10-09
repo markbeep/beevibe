@@ -2,33 +2,10 @@ import { createSignal, For, onMount, Show, type JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { FaSolidPlus, FaSolidRightFromBracket } from "solid-icons/fa";
 import { api, ApiError } from "../lib/api";
-import type { Room, RoomState, RoomUpdateFrame } from "../lib/types";
+import { STATE_TAG, TRANSITIONS } from "../lib/rooms";
+import type { Room, RoomUpdateFrame } from "../lib/types";
 import { Modal } from "../components/Modal";
 import { useAdminSocket, useSession } from "../session";
-
-const STATE_LABEL: Record<RoomState, string> = {
-  open: "open",
-  started: "started",
-  closed: "closed",
-  archived: "archived",
-};
-
-const STATE_TAG: Record<RoomState, string> = {
-  open: "tag is-info",
-  started: "tag is-success",
-  closed: "tag is-warning",
-  archived: "tag is-dark",
-};
-
-const TRANSITIONS: Record<RoomState, { label: string; action: string }[]> = {
-  open: [{ label: "Start", action: "start" }],
-  started: [{ label: "Close", action: "close" }],
-  closed: [
-    { label: "Reopen", action: "reopen" },
-    { label: "Archive", action: "archive" },
-  ],
-  archived: [],
-};
 
 const createdFormat = new Intl.DateTimeFormat(undefined, {
   dateStyle: "short",
@@ -152,84 +129,86 @@ export default function AdminRooms(): JSX.Element {
         <div class="notification is-danger is-light">{error()}</div>
       </Show>
 
-      <table class="table is-fullwidth is-hoverable">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>ID</th>
-            <th>Users</th>
-            <th>State</th>
-            <th>Created</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <For each={rooms()}>
-            {(room) => (
-              <tr>
-                <td>
-                  <div class="room-name-cell">
-                    <span>{room.name || "—"}</span>
-                    <button
-                      class="button is-small is-ghost"
-                      onClick={() => {
-                        setRenameTarget(room);
-                        setRenameValue(room.name ?? "");
-                      }}
-                    >
-                      rename
-                    </button>
-                    <a
-                      class="button is-small is-ghost"
-                      href={`/admin/rooms/${room.id}`}
-                    >
-                      settings
-                    </a>
-                    <a
-                      class="button is-small is-ghost"
-                      href={`/admin/rooms/${room.id}/live`}
-                    >
-                      live
-                    </a>
-                  </div>
-                </td>
-                <td>
-                  <code>{room.id}</code>
-                </td>
-                <td>{room.userCount}</td>
-                <td>
-                  <span class={STATE_TAG[room.state]}>
-                    {STATE_LABEL[room.state]}
-                  </span>
-                </td>
-                <td>{createdFormat.format(new Date(room.createdAt * 1000))}</td>
-                <td>
-                  <div class="buttons are-small">
-                    <For each={TRANSITIONS[room.state]}>
-                      {(transition) => (
-                        <button
-                          class="button"
-                          onClick={() => void runAction(room, transition.action)}
-                        >
-                          {transition.label}
-                        </button>
-                      )}
-                    </For>
-                    <Show when={room.state === "archived"}>
+      <div class="table-container">
+        <table class="table is-fullwidth is-hoverable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>ID</th>
+              <th>Users</th>
+              <th>State</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <For each={rooms()}>
+              {(room) => (
+                <tr>
+                  <td>
+                    <div class="room-name-cell">
+                      <span>{room.name || "—"}</span>
                       <button
-                        class="button is-danger"
-                        onClick={() => setDeleteTarget(room)}
+                        class="button is-small is-ghost"
+                        onClick={() => {
+                          setRenameTarget(room);
+                          setRenameValue(room.name ?? "");
+                        }}
                       >
-                        Delete
+                        rename
                       </button>
-                    </Show>
-                  </div>
-                </td>
-              </tr>
-            )}
-          </For>
-        </tbody>
-      </table>
+                      <a
+                        class="button is-small is-ghost"
+                        href={`/admin/rooms/${room.id}`}
+                      >
+                        settings
+                      </a>
+                      <a
+                        class="button is-small is-ghost"
+                        href={`/admin/rooms/${room.id}/live`}
+                      >
+                        live
+                      </a>
+                    </div>
+                  </td>
+                  <td>
+                    <code>{room.id}</code>
+                  </td>
+                  <td>{room.userCount}</td>
+                  <td>
+                    <span class={STATE_TAG[room.state]}>
+                      {room.state}
+                    </span>
+                  </td>
+                  <td>{createdFormat.format(new Date(room.createdAt * 1000))}</td>
+                  <td>
+                    <div class="buttons are-small">
+                      <For each={TRANSITIONS[room.state]}>
+                        {(transition) => (
+                          <button
+                            class="button"
+                            onClick={() => void runAction(room, transition.action)}
+                          >
+                            {transition.label}
+                          </button>
+                        )}
+                      </For>
+                      <Show when={room.state === "archived"}>
+                        <button
+                          class="button is-danger"
+                          onClick={() => setDeleteTarget(room)}
+                        >
+                          Delete
+                        </button>
+                      </Show>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </For>
+          </tbody>
+        </table>
+      </div>
 
       <Show when={rooms().length === 0}>
         <p class="has-text-grey">No rooms yet — create one to get started.</p>

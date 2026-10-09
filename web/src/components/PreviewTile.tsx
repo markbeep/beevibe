@@ -99,7 +99,9 @@ export function PreviewTile(props: PreviewTileProps): JSX.Element {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
   });
 
-  const colour = () => `hsl(${(props.user.id * 137.508) % 360}, 55%, 45%)`;
+  // The one identity colour in the system (DESIGN.md): the golden-angle hue
+  // wheel, muted so a wall of tiles still sits inside the Sepia Slate board.
+  const colour = () => `hsl(${(props.user.id * 137.508) % 360}, 48%, 40%)`;
 
   const age = () => {
     const at = fetchedAt();

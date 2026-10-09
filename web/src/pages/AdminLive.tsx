@@ -17,14 +17,8 @@ import { mergeMessages } from "../lib/messages";
 import { ChatPanel } from "../components/ChatPanel";
 import { Drawer } from "../components/Drawer";
 import { PreviewTile } from "../components/PreviewTile";
+import { RoomHeader } from "../components/RoomHeader";
 import { useAdminSocket } from "../session";
-
-const STATE_LABEL: Record<string, string> = {
-  open: "open",
-  started: "started",
-  closed: "closed",
-  archived: "archived",
-};
 
 export default function AdminLive(): JSX.Element {
   const params = useParams<{ roomId: string }>();
@@ -271,28 +265,14 @@ export default function AdminLive(): JSX.Element {
   const oldestId = () => drawerMessages()[0]?.id;
 
   return (
-    <section class="admin-page admin-live">
-      <header class="page-head">
-        <div>
-          <h1 class="title is-4">
-            {room()?.name || "Room"}{" "}
-            <span class="tag is-light">
-              {room() ? STATE_LABEL[room()!.state] : "…"}
-            </span>
-          </h1>
-          <p class="subtitle is-6">
-            <code>{roomId()}</code> · {users().length} users
-          </p>
-        </div>
-        <div class="page-head-actions">
-          <a class="button" href={`/admin/rooms/${roomId()}`}>
-            Settings
-          </a>
-          <a class="button" href="/admin">
-            All rooms
-          </a>
-        </div>
-      </header>
+    <section class="admin-page admin-wide">
+      <RoomHeader
+        roomId={roomId()}
+        name={room()?.name || "Untitled room"}
+        state={room()?.state}
+        userCount={users().length}
+        view="overview"
+      />
 
       <Show when={error()}>
         <div class="notification is-danger is-light">{error()}</div>

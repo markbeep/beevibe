@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"net"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -37,7 +36,6 @@ type Server struct {
 	log      *zap.Logger
 
 	loginLimiter *ratelimit.Limiter
-	apiLimiter   *ratelimit.Limiter
 }
 
 // New returns a Server. transcriber and renderer may be nil only when the
@@ -61,8 +59,7 @@ func New(
 		stt:          transcriber,
 		renderer:     renderer,
 		log:          log,
-		loginLimiter: ratelimit.New(time.Minute, 5),
-		apiLimiter:   ratelimit.New(time.Minute, 30),
+		loginLimiter: ratelimit.New(loginFailWindow, loginFailMax),
 	}
 }
 
@@ -190,60 +187,18 @@ func (s *Server) withOriginCheck(next http.Handler) http.Handler {
 	})
 }
 
-// --- rate limiting ----------------------------------------------------------
+// --- login rate limiting ----------------------------------------------------
 
-var previewPathRe = regexp.MustCompile(`^/api/rooms/[^/]+/users/[0-9]+/preview$`)
-
-// isRateLimitExempt covers the idempotent, cheap, render-critical reads (D10).
-func isRateLimitExempt(r *http.Request) bool {
-	if r.Method != http.MethodGet {
-		return false
-	}
-	if r.URL.Path == "/api/me" {
-		return true
-	}
-	return previewPathRe.MatchString(r.URL.Path)
-}
-
-// identity keys the API limit per principal, using the cookie's signature only
-// (no database round trip).
-func (s *Server) identity(r *http.Request) string {
-	c, err := r.Cookie(auth.CookieName)
-	if err != nil {
-		return ""
-	}
-	sess, err := s.sessions.Parse(c.Value)
-	if err != nil {
-		return ""
-	}
-	if sess.Role == auth.RoleAdmin {
-		return "admin"
-	}
-	return "user:" + strconvItoa(sess.UserID)
-}
-
-func (s *Server) withRateLimit(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isRateLimitExempt(r) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		key := s.identity(r)
-		if key == "" {
-			// Unauthenticated requests are rejected by the auth middleware;
-			// they are not charged to any principal.
-			next.ServeHTTP(w, r)
-			return
-		}
-		ok, retry := s.apiLimiter.Allow(key)
-		if !ok {
-			w.Header().Set("Retry-After", strconvItoa(int64(retry.Seconds())+1))
-			writeError(w, http.StatusTooManyRequests, CodeRateLimited, "too many requests")
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
+// The login endpoint is the only brute-forceable surface, so it is the only one
+// limited. Its budget is spent by *rejected* credentials and never by successful
+// ones: a workshop room shares one NAT address, so thirty people signing in at
+// once must not look like an attack. Tokens are 8-char base62 (~47.6 bits), so
+// this is really the backstop for the admin password (plans/3-security.md
+// T4/T5).
+const (
+	loginFailWindow = time.Minute
+	loginFailMax    = 30
+)
 
 // clientIP honours the reverse proxy's X-Forwarded-For. The remote address's
 // ephemeral port must be stripped, otherwise every connection would form its own

@@ -13,7 +13,7 @@
 | Q-AUTH-1 | Single global admin; password from `ADMIN_PASSWORD`. |
 | Q-AUTH-2 | Admin types the raw password into the same single login field as users. |
 | Q-SEC-1 | User token: 8 chars base62 (`crypto/rand`). Room ID: 6 chars, unambiguous alphabet (no `0/O/1/l/I`). |
-| Q-SEC-2 | Rate limits: login 5/min/IP, API 30/min/user, WS 10 msg/s. |
+| Q-SEC-2 | Rate limits: login 30 rejected/min/IP (successes uncounted), WS 10 msg/s; no API limit. |
 | Q-SEC-4 | Session = `HttpOnly` `SameSite=Strict` cookie (`Secure` behind the TLS proxy); authenticates WS handshakes. |
 | Q-UI-3 | Optional "remember me" stores the token in `localStorage`; unchecked stores nothing. |
 

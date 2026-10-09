@@ -28,8 +28,11 @@ type loginRequest struct {
 }
 
 // handleLogin accepts the admin password or a user token in the same field.
+// Only rejected credentials spend the per-IP budget, so a room signing in
+// together never limits itself (see loginFailWindow).
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	if ok, retry := s.loginLimiter.Allow(clientIP(r)); !ok {
+	ip := clientIP(r)
+	if blocked, retry := s.loginLimiter.Exceeded(ip); blocked {
 		w.Header().Set("Retry-After", strconvItoa(int64(retry.Seconds())+1))
 		writeError(w, http.StatusTooManyRequests, CodeRateLimited, "too many login attempts")
 		return
@@ -50,6 +53,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	user, err := s.q.GetUserByToken(ctx, req.Token)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			s.loginLimiter.Allow(ip)
 			writeError(w, http.StatusUnauthorized, CodeUnauthorized, "invalid token")
 			return
 		}
@@ -59,6 +63,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	room, err := s.q.GetRoom(ctx, user.RoomID)
 	if err != nil {
+		s.loginLimiter.Allow(ip)
 		writeError(w, http.StatusUnauthorized, CodeUnauthorized, "invalid token")
 		return
 	}

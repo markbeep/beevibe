@@ -17,7 +17,7 @@ func (s *Server) Router() http.Handler {
 	r.Use(s.withRecovery, s.withLogging)
 
 	api := r.PathPrefix("/api").Subrouter()
-	api.Use(s.withOriginCheck, s.withRateLimit)
+	api.Use(s.withOriginCheck)
 
 	api.HandleFunc("/login", s.handleLogin).Methods(http.MethodPost)
 	api.HandleFunc("/logout", s.handleLogout).Methods(http.MethodPost)
